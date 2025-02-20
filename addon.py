@@ -68,7 +68,11 @@ class ExportMeshToJSON(Operator, ExportHelper):
             self.report({'ERROR'}, "No active object selected.")
             return {'CANCELLED'}
         
+        original_mode = obj.mode
+        bpy.ops.object.mode_set(mode='OBJECT')
         export_mesh_to_json(obj, self.filepath, self.precision)
+        bpy.ops.object.mode_set(mode=original_mode)
+
         return {'FINISHED'}
 
 def format_number(num, precision):

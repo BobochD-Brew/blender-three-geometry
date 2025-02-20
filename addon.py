@@ -60,7 +60,7 @@ class ExportMeshToJSON(Operator, ExportHelper):
     filename_ext = ".json"
     
     filepath: StringProperty(subtype='FILE_PATH')
-    precision: IntProperty(name="Precision", default=6, min=1, max=10, description="Number of decimal")
+    precision: IntProperty(name="Precision", default=3, min=1, max=10, description="Number of decimal")
     
     def execute(self, context):
         obj = context.active_object

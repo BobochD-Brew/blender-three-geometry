@@ -10,7 +10,7 @@ import bpy
 import bmesh
 import json
 import os
-from bpy_extras.io_utils import ExportHelper
+from bpy_extras.io_utils import ExportHelper, ImportHelper
 from bpy.types import Operator
 from bpy.props import StringProperty, IntProperty
 
@@ -54,6 +54,31 @@ def export_mesh_to_json(obj, filepath, precision):
     
     bpy.data.meshes.remove(mesh)
 
+def import_mesh_from_json(filepath, precision):
+    with open(filepath, 'r') as f: data = json.load(f)
+    vertices, normals, indices = data
+    
+    vert_list = [(vertices[i], vertices[i+1], vertices[i+2]) for i in range(0, len(vertices), 3)]
+    faces = [(indices[i], indices[i+1], indices[i+2]) for i in range(0, len(indices), 3)]
+    
+    mesh = bpy.data.meshes.new("ImportedMesh")
+    mesh.from_pydata(vert_list, [], faces)
+    mesh.update()
+    
+    if len(normals) == len(vertices):
+        custom_normals = []
+        for loop in mesh.loops:
+            v_idx = loop.vertex_index
+            n = (normals[v_idx*3], normals[v_idx*3+1], normals[v_idx*3+2])
+            custom_normals.append(n)
+        mesh.normals_split_custom_set(custom_normals)
+    
+    obj = bpy.data.objects.new("ImportedObject", mesh)
+    bpy.context.collection.objects.link(obj)
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+    return obj
+
 class ExportMeshToJSON(Operator, ExportHelper):
     bl_idname = "export_mesh.json"
     bl_label = "Export Mesh to JSON"
@@ -75,6 +100,21 @@ class ExportMeshToJSON(Operator, ExportHelper):
 
         return {'FINISHED'}
 
+class ImportMeshFromJSON(Operator, ImportHelper):
+    bl_idname = "import_mesh.json"
+    bl_label = "Import Mesh from JSON"
+    filename_ext = ".json"
+    
+    filepath: StringProperty(subtype='FILE_PATH')
+    
+    def execute(self, context):
+        try:
+            import_mesh_from_json(self.filepath, 3)
+        except Exception as e:
+            self.report({'ERROR'}, str(e))
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
 def format_number(num, precision):
     rounded = round(num, precision)
     return int(rounded) if int(rounded) == rounded else rounded
@@ -82,13 +122,20 @@ def format_number(num, precision):
 def menu_func_export(self, context):
     self.layout.operator(ExportMeshToJSON.bl_idname, text="Mesh (.json)")
 
+def menu_func_import(self, context):
+    self.layout.operator(ImportMeshFromJSON.bl_idname, text="Mesh (.json)")
+
 def register():
     bpy.utils.register_class(ExportMeshToJSON)
+    bpy.utils.register_class(ImportMeshFromJSON)
     bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
+    bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 
 def unregister():
     bpy.utils.unregister_class(ExportMeshToJSON)
+    bpy.utils.unregister_class(ImportMeshFromJSON)
     bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
 
 def ensure_addon_enabled(dummy):
     if not __name__ in bpy.context.preferences.addons:
